@@ -361,6 +361,20 @@
     border:1px solid var(--win); white-space:nowrap;
   }
 
+  /* PROMO CODES */
+  .promo-box{
+    background:var(--panel); border:1px solid var(--panel-line); border-radius:12px;
+    padding:24px 18px; text-align:center; max-width:420px; margin:20px auto 0;
+  }
+  .promo-desc{font-size:13px; color:var(--ink-dim); margin:0 0 16px; line-height:1.5;}
+  .promo-input{
+    width:100%; background:var(--felt-900); border:1px solid var(--panel-line); border-radius:8px;
+    padding:12px 14px; font-size:16px; text-align:center; color:var(--brass-2);
+    font-family:'Courier New', monospace; letter-spacing:2px; text-transform:uppercase;
+  }
+  .promo-input:focus{outline:none; border-color:var(--brass);}
+  .promo-input::placeholder{color:var(--ink-dim); text-transform:none; letter-spacing:normal;}
+
   /* BALLOON */
   .balloon-stage{
     height:260px; display:flex; align-items:flex-end; justify-content:center; position:relative;
@@ -750,6 +764,7 @@
   <button class="tab-btn" data-game="craps">🎲 Крэпс</button>
   <button class="tab-btn" data-game="rules">📖 Правила</button>
   <button class="tab-btn" data-game="shop">🛍 Магазин</button>
+  <button class="tab-btn" data-game="promo">🎁 Промокод</button>
 </nav>
 
 <div class="wheel-banner" id="wheelBanner">
@@ -1189,6 +1204,16 @@
 
     <div class="sh-section-label" style="margin-top:20px;">Звуковые паки</div>
     <div class="sh-grid" id="shSoundGrid"></div>
+  </section>
+
+  <!-- ===================== PROMO CODES ===================== -->
+  <section class="game" id="game-promo">
+    <div class="promo-box">
+      <p class="promo-desc">Введи промокод, чтобы получить бонусные фишки на баланс.</p>
+      <input type="text" id="promoInput" class="promo-input" placeholder="Введи код" autocomplete="off" autocapitalize="characters">
+      <button class="btn-primary" id="promoApplyBtn" style="margin-top:12px;">Активировать</button>
+      <div class="msg info" id="promoMsg" style="margin-top:14px;"></div>
+    </div>
   </section>
 
 </div>
@@ -3876,6 +3901,70 @@ function shRenderSounds(){
 setActiveTheme(getActiveTheme());
 shRenderThemes();
 shRenderSounds();
+
+/* =========================================================
+   PROMO CODES — 10 фиксированных кодов, каждый можно активировать
+   только один раз на устройстве (метка хранится в localStorage).
+   При повторной попытке — тот же текст ошибки, что и для неверного
+   кода, чтобы не раскрывать механику "код уже использован".
+   ========================================================= */
+const PROMO_CODES = {
+  'START10': 10,
+  'BONUS15': 15,
+  'LUCKY20': 20,
+  'CHIP25': 25,
+  'GOLD30': 30,
+  'WIN50': 50,
+  'CASINO100': 100,
+  'JACKPOT210': 210,
+  'ROYAL355': 355,
+  'DIAMOND500': 500
+};
+
+function getUsedPromoCodes(){
+  try{ return JSON.parse(localStorage.getItem('mc_used_promo')||'[]'); }
+  catch(e){ return []; }
+}
+function markPromoCodeUsed(code){
+  const used = getUsedPromoCodes();
+  used.push(code);
+  localStorage.setItem('mc_used_promo', JSON.stringify(used));
+}
+
+document.getElementById('promoApplyBtn').addEventListener('click', ()=>{
+  const raw = document.getElementById('promoInput').value.trim().toUpperCase();
+  const msgEl = document.getElementById('promoMsg');
+
+  if(!raw){
+    msgEl.textContent = 'Введи промокод.';
+    msgEl.className = 'msg info';
+    return;
+  }
+
+  const amount = PROMO_CODES[raw];
+  const alreadyUsed = getUsedPromoCodes().includes(raw);
+
+  // Один и тот же текст ошибки и для несуществующего кода, и для уже
+  // использованного — снаружи это выглядит одинаково "неверный код".
+  if(!amount || alreadyUsed){
+    msgEl.textContent = 'Промокод недействителен.';
+    msgEl.className = 'msg lose';
+    sfx.lose();
+    document.getElementById('promoInput').value = '';
+    return;
+  }
+
+  state.balance += amount;
+  saveBalance();
+  markPromoCodeUsed(raw);
+  sfx.bigWin();
+  msgEl.textContent = `Промокод активирован! +${amount} фишек.`;
+  msgEl.className = 'msg win';
+  document.getElementById('promoInput').value = '';
+});
+document.getElementById('promoInput').addEventListener('keydown', (e)=>{
+  if(e.key === 'Enter') document.getElementById('promoApplyBtn').click();
+});
 
 renderBalance();
 updateFreeSpinBanner();
